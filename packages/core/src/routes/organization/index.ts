@@ -1,10 +1,12 @@
 import {
+  type CreateOrganization,
   type OrganizationWithFeatured,
   Organizations,
   ProductEvent,
   featuredUserGuard,
 } from '@logto/schemas';
 import { yes } from '@silverhand/essentials';
+import { UniqueIntegrityConstraintViolationError } from '@silverhand/slonik';
 import { z } from 'zod';
 
 import koaGuard from '#src/middleware/koa-guard.js';
@@ -109,6 +111,44 @@ export default function organizationRoutes<T extends ManagementApiRouter>(
             })
           )
         : entities;
+      return next();
+    }
+  );
+
+  /**
+   * Duranta fork: create an organization with a caller-supplied id
+   * (`PUT /organizations/:id`) so it can mirror an external entity 1:1. The
+   * generic `POST /` route always generates the id server-side. When an
+   * organization with the id already exists it is returned unchanged (200),
+   * which makes provisioning retries idempotent; otherwise a fresh
+   * organization is created (201).
+   */
+  router.put(
+    '/:id',
+    koaGuard({
+      params: z.object({ id: z.string().regex(/^[\w-]{1,21}$/) }),
+      body: Organizations.createGuard.omit({ id: true }),
+      response: Organizations.guard,
+      status: [200, 201, 403],
+    }),
+    koaQuotaGuard({ key: 'organizationsLimit', quota }),
+    koaReportSubscriptionUpdates({ key: 'organizationsLimit', quota }),
+    async (ctx, next) => {
+      const { params, body } = ctx.guard;
+
+      try {
+        // eslint-disable-next-line no-restricted-syntax -- mirrors the generic `POST /` route
+        ctx.body = await organizations.insert({ id: params.id, ...body } as CreateOrganization);
+        ctx.status = 201;
+        captureEvent({ tenantId, request: ctx.req }, ProductEvent.OrganizationCreated);
+      } catch (error) {
+        if (!(error instanceof UniqueIntegrityConstraintViolationError)) {
+          throw error;
+        }
+        ctx.body = await organizations.findById(params.id);
+        ctx.status = 200;
+      }
+
       return next();
     }
   );
