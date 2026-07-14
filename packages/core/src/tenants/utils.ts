@@ -6,6 +6,7 @@ import {
   oidcPrivateKeyGuard,
 } from '@logto/schemas';
 import { Tenants } from '@logto/schemas/models';
+import { resolveRdsDsn } from '@logto/shared';
 import { conditional } from '@silverhand/essentials';
 import { parseDsn, sql, stringifyDsn } from '@silverhand/slonik';
 import { z } from 'zod';
@@ -44,7 +45,9 @@ export const getTenantDatabaseDsn = async (tenantId: string) => {
     throw new TenantNotFoundError(`Cannot find valid tenant credentials for ID ${tenantId}`);
   }
 
-  const options = parseDsn(dbUrl);
+  // The raw dbUrl may use the `rds:` host form, which parseDsn cannot handle.
+  const { dsn: resolvedDatabaseUrl } = await resolveRdsDsn(dbUrl);
+  const options = parseDsn(resolvedDatabaseUrl);
   const { dbUser: username, dbUserPassword: password } = z
     .object({ dbUser: z.string(), dbUserPassword: z.string().optional() })
     .parse(rows[0]);

@@ -1,5 +1,5 @@
 import type { SchemaLike } from '@logto/schemas';
-import { parseTimeoutEnv } from '@logto/shared';
+import { parseTimeoutEnv, resolveRdsDsn } from '@logto/shared';
 import { assert, conditional } from '@silverhand/essentials';
 import {
   createPool,
@@ -28,13 +28,16 @@ export const getDatabaseUrlFromConfig = async () =>
 
 export const createPoolFromConfig = async () => {
   const databaseUrl = await getDatabaseUrlFromConfig();
-  assert(parseDsn(databaseUrl).databaseName, new Error('Database name is required in URL'));
+  // `rds:`-host DSNs select RDS IAM authentication; regular DSNs pass through.
+  const { dsn, PgPool } = await resolveRdsDsn(databaseUrl);
+  assert(parseDsn(dsn).databaseName, new Error('Database name is required in URL'));
 
   // `db seed` and `db alteration deploy` usually run right before `npm start` in the same
   // container, so they meet the same not-ready database or resolver as core does at startup.
   return createPoolWithRetry(async () =>
-    createPool(databaseUrl, {
+    createPool(dsn, {
       interceptors: createInterceptorsPreset(),
+      ...conditional(PgPool && { PgPool }),
       ...conditional(
         databaseStatementTimeout !== undefined && { statementTimeout: databaseStatementTimeout }
       ),
@@ -59,13 +62,15 @@ export const createPoolAndDatabaseIfNeeded = async () => {
     }
 
     const databaseUrl = await getDatabaseUrlFromConfig();
-    const dsn = parseDsn(databaseUrl);
+    const { dsn: resolvedUrl, PgPool } = await resolveRdsDsn(databaseUrl);
+    const dsn = parseDsn(resolvedUrl);
     // It's ok to fall back to '?' since:
     // - Database name is required to connect in the previous pool
     // - It will throw error when creating database using '?'
     const databaseName = dsn.databaseName ?? '?';
     const maintenancePool = await createPool(stringifyDsn({ ...dsn, databaseName: 'postgres' }), {
       interceptors: createInterceptorsPreset(),
+      ...conditional(PgPool && { PgPool }),
       ...(databaseStatementTimeout === undefined
         ? {}
         : { statementTimeout: databaseStatementTimeout }),

@@ -1,4 +1,5 @@
 import { createPoolWithRetry } from '@logto/cli/lib/pool-retry.js';
+import { resolveRdsDsn } from '@logto/shared';
 import { assert, conditional } from '@silverhand/essentials';
 import {
   createMockPool,
@@ -20,16 +21,20 @@ const createPoolByEnv = async (
     return createMockPool({ query: async () => createMockQueryResult([]) });
   }
 
-  assert(parseDsn(databaseDsn).databaseName, new Error('Database name is required'));
+  // `rds:`-host DSNs select RDS IAM authentication; regular DSNs pass through.
+  const { dsn, PgPool } = await resolveRdsDsn(databaseDsn);
+
+  assert(parseDsn(dsn).databaseName, new Error('Database name is required'));
 
   const poolOptions = {
     interceptors: createInterceptorsPreset(),
     maximumPoolSize: poolSize,
     connectionTimeout,
     ...conditional(statementTimeout !== undefined && { statementTimeout }),
+    ...conditional(PgPool && { PgPool }),
   };
 
-  return createPoolWithRetry(async () => createPool(databaseDsn, poolOptions));
+  return createPoolWithRetry(async () => createPool(dsn, poolOptions));
 };
 
 export default createPoolByEnv;
