@@ -15,12 +15,12 @@ import {
   PredefinedScope,
   getManagementApiResourceIndicator,
 } from '@logto/schemas';
-import { generateStandardId } from '@logto/shared';
+import { generateStandardId, parseRdsDsn } from '@logto/shared';
 import { assert } from '@silverhand/essentials';
 import type { CommonQueryMethods, DatabaseTransactionConnection } from '@silverhand/slonik';
 import { sql } from '@silverhand/slonik';
 
-import { insertInto } from '../../../database.js';
+import { getDatabaseUrlFromConfig, insertInto } from '../../../database.js';
 import { getDatabaseName } from '../../../queries/database.js';
 import { consoleLog } from '../../../utils.js';
 
@@ -39,6 +39,14 @@ export const createTenant = async (pool: CommonQueryMethods, tenantId: string) =
       password '${sql.raw(password)}'
       in role ${sql.identifier([parentRole])};
   `);
+
+  // Under RDS IAM (an `rds:`-host database URL) the tenant roles authenticate
+  // with IAM tokens: the grant switches the role to IAM-only authentication
+  // (the generated password above is stored but becomes unusable).
+  if (parseRdsDsn(await getDatabaseUrlFromConfig())) {
+    consoleLog.info(`Granting rds_iam to role ${role}`);
+    await pool.query(sql`grant rds_iam to ${sql.identifier([role])};`);
+  }
 };
 
 export const seedAdminData = async (

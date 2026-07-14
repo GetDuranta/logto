@@ -6,7 +6,7 @@ import {
   oidcPrivateKeyGuard,
 } from '@logto/schemas';
 import { Tenants } from '@logto/schemas/models';
-import { resolveRdsDsn } from '@logto/shared';
+import { parseRdsDsn } from '@logto/shared';
 import { conditional } from '@silverhand/essentials';
 import { parseDsn, sql, stringifyDsn } from '@silverhand/slonik';
 import { z } from 'zod';
@@ -45,12 +45,20 @@ export const getTenantDatabaseDsn = async (tenantId: string) => {
     throw new TenantNotFoundError(`Cannot find valid tenant credentials for ID ${tenantId}`);
   }
 
-  // The raw dbUrl may use the `rds:` host form, which parseDsn cannot handle.
-  const { dsn: resolvedDatabaseUrl } = await resolveRdsDsn(dbUrl);
-  const options = parseDsn(resolvedDatabaseUrl);
   const { dbUser: username, dbUserPassword: password } = z
     .object({ dbUser: z.string(), dbUserPassword: z.string().optional() })
     .parse(rows[0]);
+
+  // Under RDS IAM (an `rds:`-host dbUrl) the tenant roles authenticate with
+  // IAM tokens as well: keep the `rds:` form so that pool creation resolves it
+  // and injects a token signer for the tenant user. The stored password is
+  // unusable for these roles (`rds_iam` membership disables password auth).
+  const rdsParts = parseRdsDsn(dbUrl);
+  if (rdsParts) {
+    return `${rdsParts.scheme}${username}@rds:${rdsParts.cluster}${rdsParts.rest}`;
+  }
+
+  const options = parseDsn(dbUrl);
 
   return stringifyDsn({
     ...options,
