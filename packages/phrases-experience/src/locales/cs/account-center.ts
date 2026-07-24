@@ -15,6 +15,7 @@ const account_center = {
     support: 'Podpora',
     user_menu: 'Uživatelská nabídka',
     sign_out: 'Odhlásit se',
+    return_to_settings: 'Zpět na nastavení účtu',
   },
   verification: {
     error_send_failed: 'Odeslání ověřovacího kódu se nezdařilo. Zkus to prosím později.',

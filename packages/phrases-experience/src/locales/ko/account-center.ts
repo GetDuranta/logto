@@ -15,6 +15,7 @@ const account_center = {
     support: '지원',
     user_menu: '사용자 메뉴',
     sign_out: '로그아웃',
+    return_to_settings: '계정 설정으로 돌아가기',
   },
   verification: {
     error_send_failed: '인증 코드를 보내지 못했습니다. 잠시 후 다시 시도해주세요.',

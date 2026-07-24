@@ -16,6 +16,7 @@ const account_center = {
     support: 'Suporte',
     user_menu: 'Menu do usuário',
     sign_out: 'Sair',
+    return_to_settings: 'Voltar às configurações da conta',
   },
   verification: {
     error_send_failed: 'Falha ao enviar o código de verificação. Tente novamente mais tarde.',

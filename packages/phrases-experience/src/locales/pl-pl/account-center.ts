@@ -16,6 +16,7 @@ const account_center = {
     support: 'Pomoc',
     user_menu: 'Menu użytkownika',
     sign_out: 'Wyloguj się',
+    return_to_settings: 'Powrót do ustawień konta',
   },
   verification: {
     error_send_failed: 'Nie udało się wysłać kodu weryfikacyjnego. Spróbuj ponownie później.',

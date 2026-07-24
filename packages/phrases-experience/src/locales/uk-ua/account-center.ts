@@ -15,6 +15,7 @@ const account_center = {
     support: 'Підтримка',
     user_menu: 'Меню користувача',
     sign_out: 'Вийти',
+    return_to_settings: 'Повернутися до налаштувань облікового запису',
   },
   verification: {
     error_send_failed: 'Не вдалося надіслати код підтвердження. Спробуйте ще раз пізніше.',

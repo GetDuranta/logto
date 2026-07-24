@@ -16,6 +16,7 @@ const account_center = {
     support: 'Destek',
     user_menu: 'Kullanıcı menüsü',
     sign_out: 'Oturumu kapat',
+    return_to_settings: 'Hesap ayarlarına dön',
   },
   verification: {
     error_send_failed: 'Doğrulama kodu gönderilemedi. Lütfen daha sonra tekrar dene.',

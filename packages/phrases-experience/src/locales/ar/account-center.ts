@@ -15,6 +15,7 @@ const account_center = {
     support: 'الدعم',
     user_menu: 'قائمة المستخدم',
     sign_out: 'تسجيل الخروج',
+    return_to_settings: 'العودة إلى إعدادات الحساب',
   },
   verification: {
     error_send_failed: 'فشل إرسال رمز التحقق. يرجى المحاولة لاحقًا.',

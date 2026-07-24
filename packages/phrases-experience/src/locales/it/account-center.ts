@@ -16,6 +16,7 @@ const account_center = {
     support: 'Supporto',
     user_menu: 'Menu utente',
     sign_out: 'Esci',
+    return_to_settings: "Torna alle impostazioni dell'account",
   },
   verification: {
     error_send_failed: 'Invio del codice di verifica non riuscito. Riprova più tardi.',
