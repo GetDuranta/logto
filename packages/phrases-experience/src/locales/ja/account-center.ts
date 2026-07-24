@@ -15,6 +15,7 @@ const account_center = {
     support: 'サポート',
     user_menu: 'ユーザーメニュー',
     sign_out: 'サインアウト',
+    return_to_settings: 'アカウント設定に戻る',
   },
   verification: {
     title: 'セキュリティ確認',

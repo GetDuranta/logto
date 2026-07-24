@@ -102,6 +102,14 @@ describe('account-center-route', () => {
       expect(accountStorage.showSuccess.get()).toBe(false);
     });
 
+    it('stores the redirect query parameter on the profile route', () => {
+      setLocation('/account/profile', '?redirect=https%3A%2F%2Fexample.com%2Fdashboard');
+
+      handleAccountCenterRoute();
+
+      expect(getPendingReturn()).toBe('https://example.com/dashboard');
+    });
+
     it('stores show_success flag from query parameters', () => {
       setLocation('/account/email', '?redirect=https%3A%2F%2Fexample.com&show_success=1');
 

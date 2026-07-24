@@ -16,6 +16,7 @@ const account_center = {
     support: 'Підтримка',
     user_menu: 'Меню користувача',
     sign_out: 'Вийти',
+    return_to_settings: 'Повернутися до налаштувань облікового запису',
   },
   verification: {
     title: 'Перевірка безпеки',

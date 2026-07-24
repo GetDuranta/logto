@@ -1,7 +1,9 @@
+import Button from '@experience/shared/components/Button';
 import { AccountCenterControlValue, type CustomProfileField } from '@logto/schemas';
 import classNames from 'classnames';
 import { useCallback, useContext, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 import PageContext from '@ac/Providers/PageContextProvider/PageContext';
 import { updateAvatar } from '@ac/apis/account';
@@ -10,6 +12,12 @@ import AvatarUploadField from '@ac/components/AvatarUploadField';
 import PageFooter from '@ac/components/PageFooter';
 import { layoutClassNames } from '@ac/constants/layout';
 import useApi from '@ac/hooks/use-api';
+import {
+  clearPendingReturn,
+  clearShowSuccess,
+  getAccountCenterInternalRoute,
+  getPendingReturn,
+} from '@ac/utils/account-center-route';
 import { getProfileFieldControlKey } from '@ac/utils/profile-field-control';
 
 import homeStyles from '../Home/index.module.scss';
@@ -28,10 +36,30 @@ const profileLabelKeys: Record<string, string> = {
 
 const Profile = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { accountCenterSettings, experienceSettings, userInfo, refreshUserInfo, setToast } =
     useContext(PageContext);
   const profileFields = getAccountCenterProfileFields(accountCenterSettings);
   const [editingField, setEditingField] = useState<ProfileFieldRow>();
+  const pendingReturn = getPendingReturn();
+
+  const handleReturn = useCallback(() => {
+    if (!pendingReturn) {
+      return;
+    }
+
+    clearPendingReturn();
+    clearShowSuccess();
+
+    const internalRoute = getAccountCenterInternalRoute(pendingReturn);
+
+    if (internalRoute) {
+      navigate(internalRoute, { replace: true });
+      return;
+    }
+
+    window.location.assign(pendingReturn);
+  }, [navigate, pendingReturn]);
 
   const fieldRows = useMemo(() => {
     const customProfileFieldCatalog =
@@ -153,6 +181,15 @@ const Profile = () => {
             </div>
           ) : (
             <div className={styles.empty} />
+          )}
+          {pendingReturn && (
+            <div className={styles.returnAction}>
+              <Button
+                size="small"
+                title="account_center.page.return_to_settings"
+                onClick={handleReturn}
+              />
+            </div>
           )}
         </div>
         <PageFooter />

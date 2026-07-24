@@ -15,6 +15,7 @@ const account_center = {
     support: 'پشتیبانی',
     user_menu: 'منوی کاربر',
     sign_out: 'خروج',
+    return_to_settings: 'بازگشت به تنظیمات حساب',
   },
   verification: {
     title: 'تأیید امنیتی',

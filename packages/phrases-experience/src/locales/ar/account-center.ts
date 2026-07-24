@@ -15,6 +15,7 @@ const account_center = {
     support: 'الدعم',
     user_menu: 'قائمة المستخدم',
     sign_out: 'تسجيل الخروج',
+    return_to_settings: 'العودة إلى إعدادات الحساب',
   },
   verification: {
     title: 'التحقق الأمني',
