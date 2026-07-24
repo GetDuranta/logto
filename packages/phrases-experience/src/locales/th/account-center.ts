@@ -15,6 +15,7 @@ const account_center = {
     support: 'ฝ่ายช่วยเหลือ',
     user_menu: 'เมนูผู้ใช้',
     sign_out: 'ออกจากระบบ',
+    return_to_settings: 'กลับไปที่การตั้งค่าบัญชี',
   },
   verification: {
     title: 'การยืนยันความปลอดภัย',

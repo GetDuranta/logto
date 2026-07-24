@@ -19,14 +19,16 @@
   flex: 1;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  // Stretch the main column to the full page height so page footers can sit
+  // at the bottom of the viewport instead of right under the content.
+  align-items: stretch;
 }
 
 .withSidebar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   gap: _.unit(6);
-  align-items: start;
+  align-items: stretch;
   padding: 0 _.unit(6);
 }
 

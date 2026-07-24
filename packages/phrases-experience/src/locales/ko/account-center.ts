@@ -15,6 +15,7 @@ const account_center = {
     support: '지원',
     user_menu: '사용자 메뉴',
     sign_out: '로그아웃',
+    return_to_settings: '계정 설정으로 돌아가기',
   },
   verification: {
     title: '보안 인증',

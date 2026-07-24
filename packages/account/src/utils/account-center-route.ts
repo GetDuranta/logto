@@ -120,11 +120,19 @@ export const {
 } = sessionStorage;
 
 /**
- * Parse and store the redirect URL and show success flag from single-task flow query parameters.
+ * Routes that accept the `redirect` query parameter. Besides the single-task
+ * flows, the profile page accepts it to show a "return to" button that leads
+ * back to the calling app.
+ */
+const isRedirectAwareRoute = (pathname: string): boolean =>
+  isTaskFlowRoute(pathname) || getInternalPathname(pathname) === profileRoute;
+
+/**
+ * Parse and store the redirect URL and show success flag from query parameters.
  * This needs to be done before OAuth flow starts so it persists through the sign-in.
  */
 const handleRedirectParameter = () => {
-  if (!isTaskFlowRoute(window.location.pathname)) {
+  if (!isRedirectAwareRoute(window.location.pathname)) {
     return;
   }
 

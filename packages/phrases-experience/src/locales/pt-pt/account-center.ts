@@ -16,6 +16,7 @@ const account_center = {
     support: 'Suporte',
     user_menu: 'Menu do utilizador',
     sign_out: 'Terminar sessão',
+    return_to_settings: 'Voltar às definições da conta',
   },
   verification: {
     title: 'Verificação de segurança',

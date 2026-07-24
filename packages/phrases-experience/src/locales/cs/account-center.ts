@@ -16,6 +16,7 @@ const account_center = {
     support: 'Podpora',
     user_menu: 'Uživatelská nabídka',
     sign_out: 'Odhlásit se',
+    return_to_settings: 'Zpět na nastavení účtu',
   },
   verification: {
     title: 'Ověření bezpečnosti',

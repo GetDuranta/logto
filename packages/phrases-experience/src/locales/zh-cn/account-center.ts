@@ -15,6 +15,7 @@ const account_center = {
     support: '支持',
     user_menu: '用户菜单',
     sign_out: '退出登录',
+    return_to_settings: '返回账户设置',
   },
   verification: {
     title: '安全验证',

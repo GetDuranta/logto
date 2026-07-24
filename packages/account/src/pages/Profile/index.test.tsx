@@ -20,6 +20,7 @@ import renderWithPageContext, {
 
 import { updateAvatar, updateCustomData, updateName, updateProfile } from '../../apis/account';
 import { uploadAccountAvatar } from '../../apis/avatar';
+import { accountStorage } from '../../utils/session-storage';
 
 import Profile from '.';
 
@@ -788,6 +789,41 @@ describe('<Profile />', () => {
     });
 
     expect(queryByText('account_center.security.change')).toBeNull();
+  });
+
+  it('does not show the return button without a stored return URL', () => {
+    sessionStorage.clear();
+
+    const { queryByText } = renderProfile();
+
+    expect(queryByText('account_center.page.return_to_settings')).toBeNull();
+  });
+
+  it('returns to the stored return URL and clears it when the return button is clicked', () => {
+    sessionStorage.clear();
+    accountStorage.pendingReturn.set('https://example.com/settings');
+    const mockAssign = jest.fn();
+    const originalLocation = window.location;
+    // eslint-disable-next-line @silverhand/fp/no-mutating-methods
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...originalLocation, assign: mockAssign, origin: 'http://localhost' },
+    });
+
+    try {
+      const { getByText } = renderProfile();
+
+      fireEvent.click(getByText('account_center.page.return_to_settings'));
+
+      expect(mockAssign).toHaveBeenCalledWith('https://example.com/settings');
+      expect(accountStorage.pendingReturn.get()).toBeUndefined();
+    } finally {
+      // eslint-disable-next-line @silverhand/fp/no-mutating-methods
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+    }
   });
 });
 /* eslint-enable max-lines */
