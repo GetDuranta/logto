@@ -46,6 +46,7 @@ RUN rm -rf .scripts pnpm-*.yaml packages/cloud
 
 ###### [STAGE] Seal ######
 FROM node:22-alpine AS app
+RUN apk add --no-cache ca-certificates
 WORKDIR /etc/logto
 ARG logto_oss_survey_endpoint=
 ARG private_key_rotation_grace_period=0
