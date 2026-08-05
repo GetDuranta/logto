@@ -124,7 +124,12 @@ export const getUserClaimsData = async (
           assert(organizations, 'organizations should be defined');
           return [
             claim,
-            organizations.map((element) => pick(element, 'id', 'name', 'description')),
+            // Duranta: `customData` carries the tenant's OrganizationMetadata
+            // (feature flags, subscription) so clients can read it from the
+            // ID token / userinfo without a backend round-trip.
+            organizations.map((element) =>
+              pick(element, 'id', 'name', 'description', 'customData')
+            ),
           ];
         }
         case 'sso_identities': {
