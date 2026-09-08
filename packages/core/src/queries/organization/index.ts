@@ -323,7 +323,10 @@ export default class OrganizationQueries extends SchemaQueries<
   };
 
   constructor(pool: CommonQueryMethods) {
-    super(pool, Organizations);
+    // Order by the unique id so limit/offset pagination is stable; without an
+    // explicit order Postgres may return rows in a different order per page,
+    // making paginated listings skip or duplicate organizations.
+    super(pool, Organizations, { field: 'id', order: 'asc' });
   }
 
   async createRoleWithScopes(
