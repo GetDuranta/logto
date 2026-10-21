@@ -210,9 +210,24 @@ export const buildHandler: Handler = (envSet, queries, appAccess) => async (ctx)
 
   ctx.oidc.entity('Account', account);
 
+  /** Replay of a rotated token whose successor was never used: answer with that successor, mint nothing. */
+  let isReplay = false;
   if (refreshToken.consumed) {
-    await Promise.all([refreshToken.destroy(), revoke(ctx, refreshToken.grantId)]);
-    throw new InvalidGrant('refresh token already used');
+    const successor = await queries.oidcModelInstances.findRefreshTokenSuccessor(refreshToken.jti, {
+      grantId: refreshToken.grantId,
+      accountId: account.accountId,
+      clientId: client.clientId,
+      rotations: refreshToken.rotations ?? 0,
+    });
+
+    if (!successor || successor.consumedAt) {
+      await Promise.all([refreshToken.destroy(), revoke(ctx, refreshToken.grantId)]);
+      throw new InvalidGrant('refresh token already used');
+    }
+
+    isReplay = true;
+    refreshTokenValue = successor.id;
+    ctx.oidc.entity('ReplayedRefreshToken', refreshToken);
   }
 
   if (params.authorization_details && !rarSupported(refreshToken)) {
@@ -258,8 +273,9 @@ export const buildHandler: Handler = (envSet, queries, appAccess) => async (ctx)
   /* === End RFC 0001 === */
 
   if (
-    rotateRefreshToken === true ||
-    (typeof rotateRefreshToken === 'function' && (await rotateRefreshToken(ctx)))
+    !isReplay &&
+    (rotateRefreshToken === true ||
+      (typeof rotateRefreshToken === 'function' && (await rotateRefreshToken(ctx))))
   ) {
     await refreshToken.consume();
     ctx.oidc.entity('RotatedRefreshToken', refreshToken);
