@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- the successor lookup pushes the query collection just over the limit */
 import type { Application, OidcModelInstance, OidcModelInstancePayload } from '@logto/schemas';
 import { Applications, CimdGrantClientSnapshots, OidcModelInstances } from '@logto/schemas';
 import { ConsoleLog } from '@logto/shared';
@@ -33,6 +34,8 @@ const sessionModelName = 'Session';
  */
 // Hard-code this value since 3 seconds is a reasonable number for concurrency and no need for further configuration
 const refreshTokenReuseInterval = 3;
+/** `iat` is truncated to whole seconds, so a successor can read up to 1s older than its parent's `consumed_at`. */
+const successorIatToleranceSeconds = 1;
 /**
  * Under row-level security the planner cannot seek by the jsonb key, so each batch scans the
  * tenant's rows for the model up to its matches and the final empty batch scans them all; a
@@ -196,6 +199,40 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods) => {
 
     return isRefreshToken || rowCount > 0;
   };
+
+  /**
+   * Find the unexpired refresh token that rotation issued from `tokenId`: same grant, account and
+   * client, one rotation ahead, issued no earlier than the parent's consumption. When parallel
+   * refreshes left several, the newest `iat` wins, then the smallest `id`.
+   */
+  const findRefreshTokenSuccessor = async (
+    tokenId: string,
+    {
+      grantId,
+      accountId,
+      clientId,
+      rotations,
+    }: Record<'grantId' | 'accountId' | 'clientId', string> & { rotations: number }
+  ) =>
+    pool.maybeOne<Pick<OidcModelInstance, 'id' | 'consumedAt'>>(sql`
+      select ${fields.id}, ${fields.consumedAt}
+      from ${table}
+      where ${fields.modelName}='RefreshToken'
+      and ${fields.payload} ? 'grantId'
+      and ${fields.payload}->>'grantId'=${grantId}
+      and ${fields.payload}->>'accountId'=${accountId}
+      and ${fields.payload}->>'clientId'=${clientId}
+      and ${fields.payload}->>'rotations'=${String(rotations + 1)}
+      and ${fields.expiresAt} > ${convertToTimestamp()}
+      and (${fields.payload}->>'iat')::bigint >= (
+        select floor(extract(epoch from ${fields.consumedAt}))::bigint - ${successorIatToleranceSeconds}
+        from ${table}
+        where ${fields.modelName}='RefreshToken'
+        and ${fields.id}=${tokenId}
+      )
+      order by (${fields.payload}->>'iat')::bigint desc, ${fields.id}
+      limit 1
+    `);
 
   const destroyInstanceById = async (modelName: string, id: string) => {
     await pool.query(sql`
@@ -380,6 +417,7 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods) => {
     findPayloadByUid,
     findPayloadByUserCode,
     consumeInstanceById,
+    findRefreshTokenSuccessor,
     destroyInstanceById,
     revokeInstanceByGrantId,
     revokeInstanceByUserId,
@@ -389,3 +427,4 @@ export const createOidcModelInstanceQueries = (pool: CommonQueryMethods) => {
     findUserActiveSessionUidByGrantId,
   };
 };
+/* eslint-enable max-lines */
