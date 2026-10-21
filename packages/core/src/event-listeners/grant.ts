@@ -39,7 +39,7 @@ export const grantListener = (ctx: KoaContextWithOIDC, error?: errors.OIDCProvid
     tokenTypes,
     scope,
     error: error && stringifyError(error),
-    refreshTokenReplayed: conditional(Boolean(ctx.oidc.entities.ReplayedRefreshToken) && true),
+    refreshTokenReplayed: conditional(Boolean(ctx.oidc.entities.ReplayedRefreshToken)),
   });
 };
 
