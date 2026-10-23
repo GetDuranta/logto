@@ -3,8 +3,9 @@ name: Duranta image
 # Builds the fork's Dockerfile and pushes it to the private ECR repos in the
 # be-dev and be-prod AWS accounts (infra: env/app-common/logto-ecr.tf).
 #
-# Tags: <git sha> and 1.44.0-duranta.<run number>. Bump BASE_VERSION when the
-# fork rebases onto a new upstream Logto release.
+# Tags: <git sha> and 1.44.0-duranta.<run number + 1> (Docker Hub already has
+# 1.44.0-duranta.1). Bump BASE_VERSION when the fork rebases onto a new upstream
+# Logto release.
 on:
   push:
     branches: [duranta/org-custom-id]
@@ -43,6 +44,9 @@ jobs:
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Version tag
+        run: echo "VERSION=${BASE_VERSION}-duranta.$((GITHUB_RUN_NUMBER + 1))" >> "$GITHUB_ENV"
+
       - uses: docker/setup-buildx-action@v3
 
       # The ECS task definition is X86_64, which is also the runner arch.
@@ -53,6 +57,6 @@ jobs:
           push: true
           tags: |
             ${{ steps.ecr.outputs.registry }}/getduranta/logto:${{ github.sha }}
-            ${{ steps.ecr.outputs.registry }}/getduranta/logto:${{ env.BASE_VERSION }}-duranta.${{ github.run_number }}
+            ${{ steps.ecr.outputs.registry }}/getduranta/logto:${{ env.VERSION }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
