@@ -1,0 +1,58 @@
+name: Duranta image
+
+# Builds the fork's Dockerfile and pushes it to our public ECR repository
+# (infra: env/be-prod/logto-ecr-public.tf). The push role ARN comes from the
+# repository variable LOGTO_ECR_PUSH_ROLE_ARN, so no account id lives in this
+# public repo.
+#
+# Tags: <git sha> and 1.44.0-duranta.<run number + 1> (Docker Hub already has
+# 1.44.0-duranta.1). Bump BASE_VERSION when the fork rebases onto a new upstream
+# Logto release.
+on:
+  push:
+    branches: [duranta/org-custom-id]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  BASE_VERSION: 1.44.0
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.LOGTO_ECR_PUSH_ROLE_ARN }}
+          # ECR Public only exists in us-east-1.
+          aws-region: us-east-1
+
+      - name: Login to ECR Public
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
+
+      - name: Image name and version
+        run: |
+          echo "IMAGE=$(aws ecr-public describe-repositories --repository-names logto --query 'repositories[0].repositoryUri' --output text)" >> "$GITHUB_ENV"
+          echo "VERSION=${BASE_VERSION}-duranta.$((GITHUB_RUN_NUMBER + 1))" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      # The ECS task definition is X86_64, which is also the runner arch.
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:${{ env.VERSION }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
