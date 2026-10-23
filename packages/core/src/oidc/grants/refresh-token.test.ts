@@ -1,5 +1,6 @@
 /* eslint-disable max-lines -- the CIMD grant scenarios push the suite over the limit */
 import { UserScope } from '@logto/core-kit';
+import { type OidcModelInstance } from '@logto/schemas';
 import { type KoaContextWithOIDC, errors, type Adapter } from 'oidc-provider';
 import Sinon from 'sinon';
 
@@ -605,6 +606,84 @@ describe('refresh token grant', () => {
       scope: requestScopes.join(' '),
       aud: 'urn:logto:organization:some_org_id',
     });
+  });
+});
+
+/** `consumed` is only truthy on the token once the 3s reuse window has passed. */
+const setup = (consumed: boolean, successor?: Pick<OidcModelInstance, 'id' | 'consumedAt'>) => {
+  const ctx = createOidcContext({
+    ...validOidcContext,
+    params: { refresh_token: 'some_refresh_token', scope: requestScopes.join(' ') },
+  });
+  const consume = jest.fn();
+  const destroy = jest.fn();
+  stubRefreshToken(ctx, { consumed: consumed ? true : undefined, consume, destroy });
+  stubGrant(ctx);
+  stubAccount(ctx);
+  const tenant = new MockTenant();
+  const findSuccessor = Sinon.stub(
+    tenant.queries.oidcModelInstances,
+    'findRefreshTokenSuccessor'
+  ).resolves(successor);
+
+  Sinon.stub(getProviderConfiguration(ctx.oidc.provider), 'rotateRefreshToken').value(true);
+
+  return { ctx, tenant, consume, destroy, findSuccessor };
+};
+
+describe('refresh token grant replay of a rotated token', () => {
+  const successorId = 'successor_refresh_token';
+
+  afterEach(() => {
+    assertUserHasApplicationAccess.mockClear();
+  });
+
+  it('should return the unconsumed successor without consuming, saving or revoking', async () => {
+    const { ctx, tenant, consume, destroy, findSuccessor } = setup(true, {
+      id: successorId,
+      consumedAt: null,
+    });
+    const saveRefreshToken = Sinon.stub(ctx.oidc.provider.RefreshToken.prototype, 'save');
+    const entityStub = Sinon.stub(ctx.oidc, 'entity');
+
+    await expect(mockHandler(tenant)(ctx)).resolves.toBeUndefined();
+
+    expect(findSuccessor.calledOnce).toBe(true);
+    expect(ctx.body).toMatchObject({ refresh_token: successorId });
+    expect(consume).not.toHaveBeenCalled();
+    expect(destroy).not.toHaveBeenCalled();
+    expect(saveRefreshToken.called).toBe(false);
+    expect(entityStub.calledWith('ReplayedRefreshToken')).toBe(true);
+    saveRefreshToken.restore();
+  });
+
+  it('should revoke when the successor has already been used', async () => {
+    const { ctx, tenant, destroy } = setup(true, { id: successorId, consumedAt: 1 });
+
+    await expect(mockHandler(tenant)(ctx)).rejects.toMatchError(
+      new errors.InvalidGrant('refresh token already used')
+    );
+    expect(destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('should revoke when there is no usable successor', async () => {
+    const { ctx, tenant, destroy } = setup(true);
+
+    await expect(mockHandler(tenant)(ctx)).rejects.toMatchError(
+      new errors.InvalidGrant('refresh token already used')
+    );
+    expect(destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('should keep the plain rotation inside the reuse window', async () => {
+    const { ctx, tenant, consume, findSuccessor } = setup(false);
+    const entityStub = Sinon.stub(ctx.oidc, 'entity');
+
+    await expect(mockHandler(tenant)(ctx)).resolves.toBeUndefined();
+
+    expect(findSuccessor.called).toBe(false);
+    expect(consume).toHaveBeenCalledTimes(1);
+    expect(entityStub.calledWith('ReplayedRefreshToken')).toBe(false);
   });
 });
 

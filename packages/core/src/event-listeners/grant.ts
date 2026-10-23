@@ -1,4 +1,5 @@
 import { GrantType, LogResult, token } from '@logto/schemas';
+import { conditional } from '@silverhand/essentials';
 import type { errors, KoaContextWithOIDC } from 'oidc-provider';
 import { z } from 'zod';
 
@@ -38,6 +39,7 @@ export const grantListener = (ctx: KoaContextWithOIDC, error?: errors.OIDCProvid
     tokenTypes,
     scope,
     error: error && stringifyError(error),
+    refreshTokenReplayed: conditional(Boolean(ctx.oidc.entities.ReplayedRefreshToken)),
   });
 };
 
