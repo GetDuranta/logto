@@ -5,7 +5,7 @@ name: Duranta image
 # repository variable LOGTO_ECR_PUSH_ROLE_ARN, so no account id lives in this
 # public repo.
 #
-# Tags: <git sha> and <BASE_VERSION>-duranta.<run number + 1> (the run number keeps
+# Multi-arch (amd64 + arm64). Tags: <git sha> and <BASE_VERSION>-duranta.<run number + 1> (the run number keeps
 # counting across base versions). Bump BASE_VERSION when the fork rebases onto a
 # new upstream Logto release; each rebase lives on its own duranta/* branch.
 on:
@@ -21,8 +21,16 @@ env:
   BASE_VERSION: 1.46.0
 
 jobs:
-  push:
-    runs-on: ubuntu-latest
+  # One native runner per architecture (no QEMU); each pushes <git sha>-<arch>.
+  build:
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -38,21 +46,47 @@ jobs:
         with:
           registry-type: public
 
-      - name: Image name and version
+      - name: Image name
         run: |
           echo "IMAGE=$(aws ecr-public describe-repositories --repository-names logto --query 'repositories[0].repositoryUri' --output text)" >> "$GITHUB_ENV"
-          echo "VERSION=${BASE_VERSION}-duranta.$((GITHUB_RUN_NUMBER + 1))" >> "$GITHUB_ENV"
 
       - uses: docker/setup-buildx-action@v3
 
-      # The ECS task definition is X86_64, which is also the runner arch.
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: |
-            ${{ env.IMAGE }}:${{ github.sha }}
-            ${{ env.IMAGE }}:${{ env.VERSION }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: linux/${{ matrix.arch }}
+          # A single-platform image, so the manifest job can combine the two.
+          provenance: false
+          tags: ${{ env.IMAGE }}:${{ github.sha }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+
+  # Combines the per-arch images into the multi-arch <git sha> and version tags.
+  manifest:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.LOGTO_ECR_PUSH_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Login to ECR Public
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Create the multi-arch tags
+        run: |
+          IMAGE=$(aws ecr-public describe-repositories --repository-names logto --query 'repositories[0].repositoryUri' --output text)
+          VERSION="${BASE_VERSION}-duranta.$((GITHUB_RUN_NUMBER + 1))"
+          docker buildx imagetools create \
+            --tag "${IMAGE}:${GITHUB_SHA}" --tag "${IMAGE}:${VERSION}" \
+            "${IMAGE}:${GITHUB_SHA}-amd64" "${IMAGE}:${GITHUB_SHA}-arm64"
+          echo "Pushed ${IMAGE}:${VERSION}" >> "$GITHUB_STEP_SUMMARY"
